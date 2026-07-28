@@ -91,35 +91,77 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, esp32Status }) =
               </div>
             </div>
 
-            {/* Hero Right Graphic Column (3D Medicine Box Illustration & Animated Pill Badges) */}
-            <div className="lg:col-span-5 relative">
-              <div className="relative mx-auto max-w-md lg:max-w-none">
-                {/* Main 3D Box Illustration Container */}
-                <div className="relative rounded-3xl p-3 bg-gradient-to-tr from-sky-100 via-white to-teal-50 border border-sky-100 shadow-2xl overflow-hidden group">
-                  <img
-                    src="/src/assets/images/smart_medicine_box_1785240986970.jpg"
-                    alt="MediGuard ESP32 Smart Medicine Box 3D Illustration"
-                    referrerPolicy="no-referrer"
-                    className="w-full h-auto rounded-2xl object-cover transform group-hover:scale-105 transition-transform duration-700"
-                  />
+            {/* Hero Right Graphic Column (ESP32 Live Smart Box Digital Display) */}
+            <div className="lg:col-span-5 relative w-full">
+              <div className="relative mx-auto w-full max-w-lg">
+                {/* Main ESP32 Device Unit Card */}
+                <div className="rounded-3xl p-5 sm:p-6 bg-gradient-to-br from-slate-900 via-slate-800 to-sky-950 text-white shadow-2xl border border-slate-700/70 relative overflow-hidden space-y-5">
+                  {/* Decorative Background Glows */}
+                  <div className="absolute top-0 right-0 w-48 h-48 bg-teal-500/15 rounded-full blur-2xl pointer-events-none"></div>
+                  <div className="absolute bottom-0 left-0 w-48 h-48 bg-sky-500/15 rounded-full blur-2xl pointer-events-none"></div>
 
-                  {/* Overlay Glass Badge 1: ESP32 Status */}
-                  <div className="absolute top-3 left-3 sm:top-6 sm:left-6 backdrop-blur-md bg-white/85 p-2 sm:p-3 rounded-2xl border border-white/60 shadow-lg flex items-center gap-2 sm:gap-3 max-w-[75%]">
-                    <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-teal-500 animate-ping flex-shrink-0"></div>
-                    <div className="truncate">
-                      <p className="text-[11px] sm:text-xs font-bold text-slate-900 truncate">ESP32 NCSC Box</p>
-                      <p className="text-[9px] sm:text-[10px] text-teal-600 font-semibold truncate">{esp32Status.wifiSSID}</p>
+                  {/* ESP32 Device Status Header */}
+                  <div className="flex items-center justify-between pb-4 border-b border-slate-700/60 relative z-10">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-sky-500/20 border border-sky-400/30 flex items-center justify-center text-sky-400">
+                        <Cpu className="w-5 h-5 animate-pulse" />
+                      </div>
+                      <div>
+                        <h3 className="font-extrabold text-sm tracking-wide text-white">ESP32 NCSC Smart Box</h3>
+                        <p className="text-[11px] text-teal-400 font-semibold flex items-center gap-1.5 mt-0.5">
+                          <span className="w-2 h-2 rounded-full bg-teal-400 animate-ping inline-block"></span>
+                          <span>Connected • {esp32Status.wifiSSID}</span>
+                        </p>
+                      </div>
                     </div>
+                    <span className="px-2.5 py-1 rounded-full bg-slate-800/90 border border-slate-700 text-[10px] font-mono font-bold text-slate-300">
+                      AES-256
+                    </span>
                   </div>
 
-                  {/* Overlay Glass Badge 2: Next Pill Reminder */}
-                  <div className="absolute bottom-3 right-3 sm:bottom-6 sm:right-6 backdrop-blur-md bg-white/90 p-2.5 sm:p-3.5 rounded-2xl border border-white/80 shadow-xl flex items-center gap-2.5 sm:gap-3 max-w-[80%]">
-                    <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-sky-100 text-sky-600 flex items-center justify-center font-bold flex-shrink-0">
-                      <Pill className="w-4 h-4 sm:w-5 sm:h-5 animate-spin-slow" />
-                    </div>
-                    <div className="truncate">
-                      <p className="text-[11px] sm:text-xs font-bold text-slate-900 truncate">Amoxicillin 500mg</p>
-                      <p className="text-[9px] sm:text-[10px] text-slate-500 truncate">Morning Slot • 08:00 AM</p>
+                  {/* 4 Interactive LED Compartments Grid */}
+                  <div className="grid grid-cols-2 gap-3 relative z-10">
+                    {[
+                      { name: 'Morning', time: '08:00 AM', status: 'LED Active Prompt', active: true, badge: 'from-amber-500/20 to-amber-600/10 border-amber-500/40 text-amber-300' },
+                      { name: 'Afternoon', time: '01:00 PM', status: 'Standby', active: false, badge: 'from-sky-500/10 to-sky-600/5 border-slate-700/80 text-slate-400' },
+                      { name: 'Evening', time: '06:00 PM', status: 'Standby', active: false, badge: 'from-purple-500/10 to-purple-600/5 border-slate-700/80 text-slate-400' },
+                      { name: 'Night', time: '09:30 PM', status: 'Standby', active: false, badge: 'from-indigo-500/10 to-indigo-600/5 border-slate-700/80 text-slate-400' },
+                    ].map((slot, i) => (
+                      <div
+                        key={i}
+                        className={`p-3.5 rounded-2xl border bg-gradient-to-br ${slot.badge} flex flex-col justify-between space-y-2 relative overflow-hidden transition-all`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-white">{slot.name}</span>
+                          {slot.active ? (
+                            <span className="flex h-2.5 w-2.5 relative">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
+                            </span>
+                          ) : (
+                            <span className="w-2 h-2 rounded-full bg-slate-600"></span>
+                          )}
+                        </div>
+                        <div className="text-[10px] text-slate-300 font-medium truncate">
+                          {slot.status}
+                        </div>
+                        <div className="text-[11px] font-mono font-bold text-sky-300">
+                          {slot.time}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Next Dose Live Card */}
+                  <div className="p-3.5 rounded-2xl bg-slate-800/80 border border-slate-700/80 flex items-center justify-between relative z-10">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-sky-500/20 text-sky-400 flex items-center justify-center font-bold text-xs flex-shrink-0">
+                        <Pill className="w-4 h-4 animate-spin-slow" />
+                      </div>
+                      <div className="truncate">
+                        <p className="text-xs font-bold text-white truncate">Next Dose: Amoxicillin 500mg</p>
+                        <p className="text-[10px] text-slate-400 truncate">Morning Slot • 08:00 AM Prompt</p>
+                      </div>
                     </div>
                   </div>
                 </div>
