@@ -137,6 +137,11 @@ export async function registerUserInDatabase(userData: {
     });
 
     if (authError) {
+      if (authError.message.toLowerCase().includes('rate limit') || authError.message.toLowerCase().includes('rate exceeded')) {
+        throw new Error(
+          'Supabase Email Rate Limit Exceeded: Supabase restricts default confirmation emails to 3-4 per hour. You can disable "Confirm email" in Supabase Dashboard (Authentication -> Providers -> Email) for testing, or try signing in if you already confirmed.'
+        );
+      }
       throw new Error(authError.message);
     }
 
@@ -283,6 +288,11 @@ export async function sendSupabasePasswordReset(email: string): Promise<void> {
       redirectTo: window.location.origin,
     });
     if (error) {
+      if (error.message.toLowerCase().includes('rate limit') || error.message.toLowerCase().includes('rate exceeded')) {
+        throw new Error(
+          'Supabase Email Rate Limit Exceeded: Supabase allows a limited number of password reset emails per hour. Please wait a short while or configure custom SMTP in Supabase Settings.'
+        );
+      }
       throw new Error(`Supabase Reset Error: ${error.message}`);
     }
   }
