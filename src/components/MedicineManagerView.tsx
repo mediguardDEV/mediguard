@@ -21,11 +21,13 @@ import {
   X,
   Radio,
 } from 'lucide-react';
-import { Medicine, TimeOfDay, ESP32Status } from '../types';
+import { Medicine, TimeOfDay, ESP32Status, UserSession } from '../types';
 
 interface MedicineManagerViewProps {
   medicines: Medicine[];
   esp32Status: ESP32Status;
+  user?: UserSession | null;
+  onOpenAuthModal?: () => void;
   onSaveMedicine: (medicine: Omit<Medicine, 'id' | 'createdAt'> & { id?: string }) => Promise<void>;
   onDeleteMedicine: (id: string) => Promise<void>;
   onUpdateESP32Status: (status: ESP32Status) => void;
@@ -34,6 +36,8 @@ interface MedicineManagerViewProps {
 export const MedicineManagerView: React.FC<MedicineManagerViewProps> = ({
   medicines,
   esp32Status,
+  user,
+  onOpenAuthModal,
   onSaveMedicine,
   onDeleteMedicine,
   onUpdateESP32Status,
@@ -62,6 +66,10 @@ export const MedicineManagerView: React.FC<MedicineManagerViewProps> = ({
   const [scannerMsg, setScannerMsg] = useState('');
 
   const handleOpenAddModal = (med?: Medicine) => {
+    if (!user) {
+      if (onOpenAuthModal) onOpenAuthModal();
+      return;
+    }
     if (med) {
       setEditingMed(med);
       setName(med.name);

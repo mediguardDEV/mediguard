@@ -31,6 +31,8 @@ import {
   saveMedicalProfile,
   fetchESP32Status,
   saveESP32Status,
+  getActiveUserFromSession,
+  saveActiveUserToSession,
 } from './lib/supabase';
 
 import { INITIAL_NOTIFICATIONS } from './lib/sampleData';
@@ -77,10 +79,14 @@ export default function App() {
   });
   const [notifications, setNotifications] = useState<AppNotification[]>(INITIAL_NOTIFICATIONS);
 
-  // Load initial data
+  // Load initial data & active user
   useEffect(() => {
     async function loadData() {
       try {
+        const sessionUser = getActiveUserFromSession();
+        if (sessionUser) {
+          setUser(sessionUser);
+        }
         const meds = await fetchMedicines();
         setMedicines(meds);
         const logs = await fetchDoseLogs();
@@ -98,14 +104,22 @@ export default function App() {
     loadData();
   }, []);
 
-  // Handlers
+  // Handlers with Authentication Guard
   const handleSaveMedicine = async (med: Omit<Medicine, 'id' | 'createdAt'> & { id?: string }) => {
+    if (!user) {
+      setIsAuthModalOpen(true);
+      return;
+    }
     const saved = await saveMedicine(med);
     const updated = await fetchMedicines();
     setMedicines(updated);
   };
 
   const handleDeleteMedicine = async (id: string) => {
+    if (!user) {
+      setIsAuthModalOpen(true);
+      return;
+    }
     await deleteMedicine(id);
     const updated = await fetchMedicines();
     setMedicines(updated);
@@ -116,23 +130,44 @@ export default function App() {
     status: 'taken' | 'missed' | 'skipped',
     reason?: string
   ) => {
+    if (!user) {
+      setIsAuthModalOpen(true);
+      return;
+    }
     const updatedLogs = await updateDoseStatus(logId, status, reason);
     setDoseLogs(updatedLogs);
   };
 
   const handleSaveContact = async (contact: EmergencyContact) => {
+    if (!user) {
+      setIsAuthModalOpen(true);
+      return;
+    }
     const updated = await saveEmergencyContact(contact);
     setEmergencyContacts(updated);
   };
 
   const handleSaveProfile = async (profile: MedicalProfile) => {
+    if (!user) {
+      setIsAuthModalOpen(true);
+      return;
+    }
     const updated = await saveMedicalProfile(profile);
     setMedicalProfile(updated);
   };
 
   const handleUpdateESP32Status = async (status: ESP32Status) => {
+    if (!user) {
+      setIsAuthModalOpen(true);
+      return;
+    }
     const updated = await saveESP32Status(status);
     setEsp32Status(updated);
+  };
+
+  const handleLogout = () => {
+    saveActiveUserToSession(null);
+    setUser(null);
   };
 
   return (
@@ -144,7 +179,7 @@ export default function App() {
         user={user}
         esp32Status={esp32Status}
         onOpenAuthModal={() => setIsAuthModalOpen(true)}
-        onLogout={() => setUser(null)}
+        onLogout={handleLogout}
       />
 
       {/* Main Content Area */}
@@ -159,6 +194,8 @@ export default function App() {
             doseLogs={doseLogs}
             esp32Status={esp32Status}
             notifications={notifications}
+            user={user}
+            onOpenAuthModal={() => setIsAuthModalOpen(true)}
             onUpdateDoseStatus={handleUpdateDoseStatus}
             onNavigate={setCurrentView}
           />
@@ -168,6 +205,8 @@ export default function App() {
           <MedicineManagerView
             medicines={medicines}
             esp32Status={esp32Status}
+            user={user}
+            onOpenAuthModal={() => setIsAuthModalOpen(true)}
             onSaveMedicine={handleSaveMedicine}
             onDeleteMedicine={handleDeleteMedicine}
             onUpdateESP32Status={handleUpdateESP32Status}
@@ -179,13 +218,20 @@ export default function App() {
             emergencyContacts={emergencyContacts}
             medicalProfile={medicalProfile}
             doseLogs={doseLogs}
+            user={user}
+            onOpenAuthModal={() => setIsAuthModalOpen(true)}
             onSaveContact={handleSaveContact}
             onSaveProfile={handleSaveProfile}
           />
         )}
 
         {currentView === 'analytics' && (
-          <AnalyticsView doseLogs={doseLogs} medicines={medicines} />
+          <AnalyticsView
+            doseLogs={doseLogs}
+            medicines={medicines}
+            user={user}
+            onOpenAuthModal={() => setIsAuthModalOpen(true)}
+          />
         )}
       </main>
 

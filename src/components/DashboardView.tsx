@@ -16,7 +16,7 @@ import {
   Battery,
   Filter,
 } from 'lucide-react';
-import { Medicine, DoseLog, ESP32Status, AppNotification } from '../types';
+import { Medicine, DoseLog, ESP32Status, AppNotification, UserSession } from '../types';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 
 interface DashboardViewProps {
@@ -24,6 +24,8 @@ interface DashboardViewProps {
   doseLogs: DoseLog[];
   esp32Status: ESP32Status;
   notifications: AppNotification[];
+  user?: UserSession | null;
+  onOpenAuthModal?: () => void;
   onUpdateDoseStatus: (logId: string, status: 'taken' | 'missed' | 'skipped', reason?: string) => void;
   onNavigate: (view: 'home' | 'dashboard' | 'health' | 'manager' | 'analytics') => void;
 }
@@ -43,6 +45,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   doseLogs,
   esp32Status,
   notifications,
+  user,
+  onOpenAuthModal,
   onUpdateDoseStatus,
   onNavigate,
 }) => {

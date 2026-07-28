@@ -78,9 +78,15 @@ export interface UserSession {
   id: string;
   email: string;
   fullName: string;
+  patientName?: string;
+  phone?: string;
+  emergencyEmail?: string;
+  emergencyPhone?: string;
+  password?: string;
   isVerified: boolean;
   avatarUrl?: string;
-  provider?: 'email' | 'google';
+  provider?: 'email';
+  createdAt?: string;
 }
 
 export interface AppNotification {

@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { Medicine, DoseLog, EmergencyContact, MedicalProfile, ESP32Status } from '../types';
+import { Medicine, DoseLog, EmergencyContact, MedicalProfile, ESP32Status, UserSession } from '../types';
 import {
   INITIAL_MEDICINES,
   INITIAL_DOSE_LOGS,
@@ -54,6 +54,157 @@ const LOCAL_DOSE_LOGS_KEY = 'mediguard_dose_logs_v1';
 const LOCAL_EMERGENCY_KEY = 'mediguard_emergency_v1';
 const LOCAL_PROFILE_KEY = 'mediguard_profile_v1';
 const LOCAL_ESP32_KEY = 'mediguard_esp32_v1';
+const LOCAL_USERS_KEY = 'mediguard_users_v2';
+const LOCAL_ACTIVE_USER_KEY = 'mediguard_active_user_v2';
+
+// User Auth Database Helpers
+export async function findUserInDatabase(email: string): Promise<UserSession | null> {
+  const cleanEmail = email.toLowerCase().trim();
+  if (!cleanEmail) return null;
+
+  const client = getSupabaseClient();
+  if (client) {
+    try {
+      const { data, error } = await client
+        .from('users')
+        .select('*')
+        .eq('email', cleanEmail)
+        .maybeSingle();
+      if (!error && data) {
+        return {
+          id: data.id,
+          email: data.email,
+          fullName: data.fullName || data.full_name || '',
+          patientName: data.patientName || data.patient_name || '',
+          phone: data.phone || '',
+          emergencyEmail: data.emergencyEmail || data.emergency_email || '',
+          emergencyPhone: data.emergencyPhone || data.emergency_phone || '',
+          password: data.password || '',
+          isVerified: true,
+          provider: 'email',
+          createdAt: data.createdAt || data.created_at || new Date().toISOString(),
+        };
+      }
+    } catch {
+      // Fallback
+    }
+  }
+
+  const raw = localStorage.getItem(LOCAL_USERS_KEY);
+  if (raw) {
+    try {
+      const users: UserSession[] = JSON.parse(raw);
+      const found = users.find((u) => u.email.toLowerCase().trim() === cleanEmail);
+      if (found) return found;
+    } catch {
+      // ignore
+    }
+  }
+
+  return null;
+}
+
+export async function registerUserInDatabase(userData: {
+  email: string;
+  fullName: string;
+  patientName: string;
+  phone: string;
+  emergencyEmail: string;
+  emergencyPhone: string;
+  password: string;
+}): Promise<UserSession> {
+  const cleanEmail = userData.email.toLowerCase().trim();
+  const existing = await findUserInDatabase(cleanEmail);
+  if (existing) {
+    throw new Error('An account with this email is already registered. Please sign in instead.');
+  }
+
+  const newUser: UserSession = {
+    id: `usr-${Date.now()}`,
+    email: cleanEmail,
+    fullName: userData.fullName.trim(),
+    patientName: userData.patientName.trim() || userData.fullName.trim(),
+    phone: userData.phone.trim(),
+    emergencyEmail: userData.emergencyEmail.trim(),
+    emergencyPhone: userData.emergencyPhone.trim(),
+    password: userData.password,
+    isVerified: true,
+    provider: 'email',
+    createdAt: new Date().toISOString(),
+  };
+
+  const raw = localStorage.getItem(LOCAL_USERS_KEY);
+  const users: UserSession[] = raw ? JSON.parse(raw) : [];
+  users.push(newUser);
+  localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(users));
+
+  const client = getSupabaseClient();
+  if (client) {
+    try {
+      await client.from('users').upsert({
+        id: newUser.id,
+        email: newUser.email,
+        full_name: newUser.fullName,
+        patient_name: newUser.patientName,
+        phone: newUser.phone,
+        emergency_email: newUser.emergencyEmail,
+        emergency_phone: newUser.emergencyPhone,
+        password: newUser.password,
+        created_at: newUser.createdAt,
+      });
+    } catch {
+      // ignore cloud error
+    }
+  }
+
+  if (newUser.emergencyPhone || newUser.emergencyEmail) {
+    const newEmergencyContact: EmergencyContact = {
+      id: `ec-${Date.now()}`,
+      name: (newUser.patientName || newUser.fullName) + ' Emergency Contact',
+      relationship: 'Primary Family Contact',
+      phone: newUser.emergencyPhone || 'N/A',
+      isPrimary: true,
+    };
+    saveEmergencyContact(newEmergencyContact);
+  }
+
+  saveActiveUserToSession(newUser);
+  return newUser;
+}
+
+export async function loginUserInDatabase(email: string, password?: string): Promise<UserSession> {
+  const cleanEmail = email.toLowerCase().trim();
+  const user = await findUserInDatabase(cleanEmail);
+
+  if (!user) {
+    throw new Error('Account not registered. Please sign up first.');
+  }
+
+  if (password && user.password && user.password !== password) {
+    throw new Error('Incorrect password. Please verify your credentials and try again.');
+  }
+
+  saveActiveUserToSession(user);
+  return user;
+}
+
+export function getActiveUserFromSession(): UserSession | null {
+  const raw = localStorage.getItem(LOCAL_ACTIVE_USER_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+export function saveActiveUserToSession(user: UserSession | null): void {
+  if (user) {
+    localStorage.setItem(LOCAL_ACTIVE_USER_KEY, JSON.stringify(user));
+  } else {
+    localStorage.removeItem(LOCAL_ACTIVE_USER_KEY);
+  }
+}
 
 // Seed local storage if empty
 export function initLocalStorageStore() {

@@ -123,14 +123,6 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, esp32Status }) =
                     </div>
                   </div>
                 </div>
-
-                {/* Floating Animated Medicine Icons */}
-                <div className="hidden sm:flex absolute -top-4 -right-4 sm:-top-6 sm:-right-6 w-11 h-11 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-sky-500 to-teal-400 text-white p-2.5 sm:p-3 shadow-lg items-center justify-center animate-pulse">
-                  <Bell className="w-5 h-5 sm:w-7 sm:h-7" />
-                </div>
-                <div className="hidden sm:flex absolute -bottom-4 -left-4 sm:-bottom-6 sm:-left-6 w-11 h-11 sm:w-14 sm:h-14 rounded-2xl bg-white text-teal-600 border border-teal-100 p-2.5 sm:p-3 shadow-lg items-center justify-center">
-                  <HeartPulse className="w-5 h-5 sm:w-7 sm:h-7 animate-bounce" />
-                </div>
               </div>
             </div>
           </div>

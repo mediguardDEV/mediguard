@@ -14,12 +14,14 @@ import {
   X,
   Sparkles,
 } from 'lucide-react';
-import { EmergencyContact, MedicalProfile, DoseLog } from '../types';
+import { EmergencyContact, MedicalProfile, DoseLog, UserSession } from '../types';
 
 interface MediGuardHealthViewProps {
   emergencyContacts: EmergencyContact[];
   medicalProfile: MedicalProfile;
   doseLogs: DoseLog[];
+  user?: UserSession | null;
+  onOpenAuthModal?: () => void;
   onSaveContact: (contact: EmergencyContact) => void;
   onSaveProfile: (profile: MedicalProfile) => void;
 }
@@ -28,6 +30,8 @@ export const MediGuardHealthView: React.FC<MediGuardHealthViewProps> = ({
   emergencyContacts,
   medicalProfile,
   doseLogs,
+  user,
+  onOpenAuthModal,
   onSaveContact,
   onSaveProfile,
 }) => {
@@ -44,6 +48,10 @@ export const MediGuardHealthView: React.FC<MediGuardHealthViewProps> = ({
 
   const handleAddContactSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) {
+      if (onOpenAuthModal) onOpenAuthModal();
+      return;
+    }
     if (!contactName || !contactPhone) return;
     onSaveContact({
       id: `em-${Date.now()}`,

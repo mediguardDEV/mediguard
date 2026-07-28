@@ -11,7 +11,7 @@ import {
   Sparkles,
   Award,
 } from 'lucide-react';
-import { DoseLog, Medicine } from '../types';
+import { DoseLog, Medicine, UserSession } from '../types';
 import {
   ResponsiveContainer,
   PieChart,
@@ -32,6 +32,8 @@ interface AnalyticsViewProps {
   doseLogs: DoseLog[];
   medicines: Medicine[];
   patientName?: string;
+  user?: UserSession | null;
+  onOpenAuthModal?: () => void;
 }
 
 const PIE_COLORS = ['#10b981', '#0ea5e9', '#f59e0b', '#64748b'];
@@ -49,7 +51,7 @@ const MISSED_REASONS_DATA = [
   { reason: 'Pill Stock Depleted', count: 0 },
 ];
 
-export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ doseLogs, medicines, patientName }) => {
+export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ doseLogs, medicines, patientName, user, onOpenAuthModal }) => {
   const [copiedReport, setCopiedReport] = useState(false);
 
   // Statistics Breakdown
