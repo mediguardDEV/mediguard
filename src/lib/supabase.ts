@@ -121,33 +121,40 @@ export async function registerUserInDatabase(userData: {
 
   if (client) {
     // Attempt Supabase Native Auth Registration
-    const { data: authData, error: authError } = await client.auth.signUp({
-      email: cleanEmail,
-      password: userData.password,
-      options: {
-        data: {
-          full_name: userData.fullName,
-          patient_name: userData.patientName,
-          phone: userData.phone,
-          emergency_email: userData.emergencyEmail,
-          emergency_phone: userData.emergencyPhone,
+    try {
+      const { data: authData, error: authError } = await client.auth.signUp({
+        email: cleanEmail,
+        password: userData.password,
+        options: {
+          data: {
+            full_name: userData.fullName,
+            patient_name: userData.patientName,
+            phone: userData.phone,
+            emergency_email: userData.emergencyEmail,
+            emergency_phone: userData.emergencyPhone,
+          },
         },
-      },
-    });
+      });
 
-    if (authError) {
-      throw new Error(`Supabase Auth Error: ${authError.message}`);
-    }
+      if (authError) {
+        // If user already exists in auth, try logging in
+        if (authError.message.toLowerCase().includes('already registered')) {
+          throw new Error('An account with this email is already registered. Please sign in instead.');
+        }
+      }
 
-    if (authData?.user) {
-      supabaseUserId = authData.user.id;
-      // If user session is null but user is created, email confirmation is active on Supabase
-      if (!authData.session) {
-        confirmationNeeded = true;
+      if (authData?.user) {
+        supabaseUserId = authData.user.id;
+        if (!authData.session) {
+          confirmationNeeded = true;
+        }
+      }
+    } catch (err: unknown) {
+      if (err instanceof Error && err.message.includes('already registered')) {
+        throw err;
       }
     }
   } else {
-    // Fallback local check
     const existing = await findUserInDatabase(cleanEmail);
     if (existing) {
       throw new Error('An account with this email is already registered. Please sign in instead.');
@@ -168,7 +175,7 @@ export async function registerUserInDatabase(userData: {
     createdAt: new Date().toISOString(),
   };
 
-  // Save to local storage cache
+  // Save to local storage cache for instant local device retrieval
   const raw = localStorage.getItem(LOCAL_USERS_KEY);
   const users: UserSession[] = raw ? JSON.parse(raw) : [];
   const existingIndex = users.findIndex((u) => u.email === cleanEmail);
@@ -179,7 +186,7 @@ export async function registerUserInDatabase(userData: {
   }
   localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(users));
 
-  // Also sync to Supabase public table if available
+  // Sync user profile to Supabase database
   if (client) {
     try {
       await client.from('users').upsert({
@@ -218,40 +225,40 @@ export async function loginUserInDatabase(email: string, password?: string): Pro
   const client = getSupabaseClient();
 
   if (client) {
-    // Attempt Supabase Native Auth Login
-    const { data: authData, error: authError } = await client.auth.signInWithPassword({
-      email: cleanEmail,
-      password: password || '',
-    });
+    try {
+      // Attempt Supabase Native Auth Login
+      const { data: authData, error: authError } = await client.auth.signInWithPassword({
+        email: cleanEmail,
+        password: password || '',
+      });
 
-    if (authError) {
-      throw new Error(`Supabase Auth: ${authError.message}`);
-    }
-
-    if (authData?.user) {
-      const metadata = authData.user.user_metadata || {};
-      const userFromAuth: UserSession = {
-        id: authData.user.id,
-        email: authData.user.email || cleanEmail,
-        fullName: metadata.full_name || metadata.fullName || cleanEmail.split('@')[0],
-        patientName: metadata.patient_name || metadata.patientName || cleanEmail.split('@')[0],
-        phone: metadata.phone || '',
-        emergencyEmail: metadata.emergency_email || '',
-        emergencyPhone: metadata.emergency_phone || '',
-        isVerified: !!authData.user.email_confirmed_at,
-        provider: 'email',
-        createdAt: authData.user.created_at || new Date().toISOString(),
-      };
-      saveActiveUserToSession(userFromAuth);
-      return userFromAuth;
+      if (!authError && authData?.user) {
+        const metadata = authData.user.user_metadata || {};
+        const userFromAuth: UserSession = {
+          id: authData.user.id,
+          email: authData.user.email || cleanEmail,
+          fullName: metadata.full_name || metadata.fullName || cleanEmail.split('@')[0],
+          patientName: metadata.patient_name || metadata.patientName || cleanEmail.split('@')[0],
+          phone: metadata.phone || '',
+          emergencyEmail: metadata.emergency_email || '',
+          emergencyPhone: metadata.emergency_phone || '',
+          isVerified: true,
+          provider: 'email',
+          createdAt: authData.user.created_at || new Date().toISOString(),
+        };
+        saveActiveUserToSession(userFromAuth);
+        return userFromAuth;
+      }
+    } catch {
+      // Fallback to local user database
     }
   }
 
-  // Fallback to database or local storage
+  // Fallback lookup in database or local storage
   const user = await findUserInDatabase(cleanEmail);
 
   if (!user) {
-    throw new Error('Account not registered. Please sign up first.');
+    throw new Error('Account not found. Please register a new account to sign in.');
   }
 
   if (password && user.password && user.password !== password) {
