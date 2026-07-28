@@ -1,0 +1,6 @@
+{
+  "name": "MediGuard",
+  "description": "Smart Healthcare & Medication Management Platform powered by ESP32 IoT Smart Box",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
