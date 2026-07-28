@@ -83,8 +83,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
       setIsLoading(false);
 
       if (confirmationNeeded) {
-        setAuthSuccessMsg(`Registration initiated! A confirmation email has been dispatched by Supabase to ${email}. Please check your inbox or spam folder to complete activation.`);
-      } else {
+        setAuthSuccessMsg(`Confirmation email dispatched by Supabase to ${email}! Please check your inbox (including spam) and click the confirmation link before logging in.`);
+      } else if (user) {
         onLoginSuccess(user);
         onClose();
       }

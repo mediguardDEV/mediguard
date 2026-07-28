@@ -33,6 +33,7 @@ import {
   saveESP32Status,
   getActiveUserFromSession,
   saveActiveUserToSession,
+  getSupabaseClient,
 } from './lib/supabase';
 
 import { INITIAL_NOTIFICATIONS } from './lib/sampleData';
@@ -79,7 +80,7 @@ export default function App() {
   });
   const [notifications, setNotifications] = useState<AppNotification[]>(INITIAL_NOTIFICATIONS);
 
-  // Load initial data & active user
+  // Load initial data & active user with Supabase Auth state listener
   useEffect(() => {
     async function loadData() {
       try {
@@ -102,6 +103,57 @@ export default function App() {
       }
     }
     loadData();
+
+    // Listen for Supabase Auth state updates (e.g. user returning after clicking confirm link in email)
+    const client = getSupabaseClient();
+    if (client) {
+      client.auth.getSession().then(({ data: { session } }) => {
+        if (session?.user) {
+          const metadata = session.user.user_metadata || {};
+          const confirmedUser: UserSession = {
+            id: session.user.id,
+            email: session.user.email || '',
+            fullName: metadata.full_name || metadata.fullName || session.user.email?.split('@')[0] || 'User',
+            patientName: metadata.patient_name || metadata.patientName || session.user.email?.split('@')[0] || 'Patient',
+            phone: metadata.phone || '',
+            emergencyEmail: metadata.emergency_email || '',
+            emergencyPhone: metadata.emergency_phone || '',
+            isVerified: !!session.user.email_confirmed_at,
+            provider: 'email',
+            createdAt: session.user.created_at || new Date().toISOString(),
+          };
+          setUser(confirmedUser);
+          saveActiveUserToSession(confirmedUser);
+        }
+      });
+
+      const { data: { subscription } } = client.auth.onAuthStateChange((event, session) => {
+        if (session?.user) {
+          const metadata = session.user.user_metadata || {};
+          const confirmedUser: UserSession = {
+            id: session.user.id,
+            email: session.user.email || '',
+            fullName: metadata.full_name || metadata.fullName || session.user.email?.split('@')[0] || 'User',
+            patientName: metadata.patient_name || metadata.patientName || session.user.email?.split('@')[0] || 'Patient',
+            phone: metadata.phone || '',
+            emergencyEmail: metadata.emergency_email || '',
+            emergencyPhone: metadata.emergency_phone || '',
+            isVerified: !!session.user.email_confirmed_at,
+            provider: 'email',
+            createdAt: session.user.created_at || new Date().toISOString(),
+          };
+          setUser(confirmedUser);
+          saveActiveUserToSession(confirmedUser);
+        } else if (event === 'SIGNED_OUT') {
+          setUser(null);
+          saveActiveUserToSession(null);
+        }
+      });
+
+      return () => {
+        subscription.unsubscribe();
+      };
+    }
   }, []);
 
   // Handlers with Authentication Guard

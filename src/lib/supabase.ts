@@ -112,7 +112,7 @@ export async function registerUserInDatabase(userData: {
   emergencyEmail: string;
   emergencyPhone: string;
   password: string;
-}): Promise<{ user: UserSession; confirmationNeeded?: boolean }> {
+}): Promise<{ user: UserSession | null; confirmationNeeded?: boolean }> {
   const cleanEmail = userData.email.toLowerCase().trim();
   const client = getSupabaseClient();
 
@@ -121,38 +121,47 @@ export async function registerUserInDatabase(userData: {
 
   if (client) {
     // Attempt Supabase Native Auth Registration
-    try {
-      const { data: authData, error: authError } = await client.auth.signUp({
-        email: cleanEmail,
-        password: userData.password,
-        options: {
-          data: {
-            full_name: userData.fullName,
-            patient_name: userData.patientName,
-            phone: userData.phone,
-            emergency_email: userData.emergencyEmail,
-            emergency_phone: userData.emergencyPhone,
-          },
+    const { data: authData, error: authError } = await client.auth.signUp({
+      email: cleanEmail,
+      password: userData.password,
+      options: {
+        emailRedirectTo: window.location.origin,
+        data: {
+          full_name: userData.fullName,
+          patient_name: userData.patientName,
+          phone: userData.phone,
+          emergency_email: userData.emergencyEmail,
+          emergency_phone: userData.emergencyPhone,
         },
+      },
+    });
+
+    if (authError) {
+      throw new Error(authError.message);
+    }
+
+    if (authData?.user) {
+      supabaseUserId = authData.user.id;
+      // If user session is null or email is not confirmed, email confirmation is required
+      if (!authData.session || !authData.user.email_confirmed_at) {
+        confirmationNeeded = true;
+      }
+    }
+
+    // Write user profile to Supabase users database table
+    try {
+      await client.from('users').upsert({
+        id: supabaseUserId,
+        email: cleanEmail,
+        full_name: userData.fullName,
+        patient_name: userData.patientName,
+        phone: userData.phone,
+        emergency_email: userData.emergencyEmail,
+        emergency_phone: userData.emergencyPhone,
+        created_at: new Date().toISOString(),
       });
-
-      if (authError) {
-        // If user already exists in auth, try logging in
-        if (authError.message.toLowerCase().includes('already registered')) {
-          throw new Error('An account with this email is already registered. Please sign in instead.');
-        }
-      }
-
-      if (authData?.user) {
-        supabaseUserId = authData.user.id;
-        if (!authData.session) {
-          confirmationNeeded = true;
-        }
-      }
-    } catch (err: unknown) {
-      if (err instanceof Error && err.message.includes('already registered')) {
-        throw err;
-      }
+    } catch {
+      // ignore DB table error if table schema pending
     }
   } else {
     const existing = await findUserInDatabase(cleanEmail);
@@ -169,41 +178,10 @@ export async function registerUserInDatabase(userData: {
     phone: userData.phone.trim(),
     emergencyEmail: userData.emergencyEmail.trim(),
     emergencyPhone: userData.emergencyPhone.trim(),
-    password: userData.password,
-    isVerified: true,
+    isVerified: !confirmationNeeded,
     provider: 'email',
     createdAt: new Date().toISOString(),
   };
-
-  // Save to local storage cache for instant local device retrieval
-  const raw = localStorage.getItem(LOCAL_USERS_KEY);
-  const users: UserSession[] = raw ? JSON.parse(raw) : [];
-  const existingIndex = users.findIndex((u) => u.email === cleanEmail);
-  if (existingIndex >= 0) {
-    users[existingIndex] = newUser;
-  } else {
-    users.push(newUser);
-  }
-  localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(users));
-
-  // Sync user profile to Supabase database
-  if (client) {
-    try {
-      await client.from('users').upsert({
-        id: newUser.id,
-        email: newUser.email,
-        full_name: newUser.fullName,
-        patient_name: newUser.patientName,
-        phone: newUser.phone,
-        emergency_email: newUser.emergencyEmail,
-        emergency_phone: newUser.emergencyPhone,
-        password: newUser.password,
-        created_at: newUser.createdAt,
-      });
-    } catch {
-      // ignore table write error if table doesn't exist
-    }
-  }
 
   if (newUser.emergencyPhone || newUser.emergencyEmail) {
     const newEmergencyContact: EmergencyContact = {
@@ -216,8 +194,13 @@ export async function registerUserInDatabase(userData: {
     saveEmergencyContact(newEmergencyContact);
   }
 
+  if (confirmationNeeded) {
+    // Strictly do NOT log in unconfirmed users into active session
+    return { user: null, confirmationNeeded: true };
+  }
+
   saveActiveUserToSession(newUser);
-  return { user: newUser, confirmationNeeded };
+  return { user: newUser, confirmationNeeded: false };
 }
 
 export async function loginUserInDatabase(email: string, password?: string): Promise<UserSession> {
@@ -225,36 +208,59 @@ export async function loginUserInDatabase(email: string, password?: string): Pro
   const client = getSupabaseClient();
 
   if (client) {
-    try {
-      // Attempt Supabase Native Auth Login
-      const { data: authData, error: authError } = await client.auth.signInWithPassword({
-        email: cleanEmail,
-        password: password || '',
-      });
+    // Attempt Supabase Native Auth Login
+    const { data: authData, error: authError } = await client.auth.signInWithPassword({
+      email: cleanEmail,
+      password: password || '',
+    });
 
-      if (!authError && authData?.user) {
-        const metadata = authData.user.user_metadata || {};
-        const userFromAuth: UserSession = {
-          id: authData.user.id,
-          email: authData.user.email || cleanEmail,
-          fullName: metadata.full_name || metadata.fullName || cleanEmail.split('@')[0],
-          patientName: metadata.patient_name || metadata.patientName || cleanEmail.split('@')[0],
-          phone: metadata.phone || '',
-          emergencyEmail: metadata.emergency_email || '',
-          emergencyPhone: metadata.emergency_phone || '',
-          isVerified: true,
-          provider: 'email',
-          createdAt: authData.user.created_at || new Date().toISOString(),
-        };
-        saveActiveUserToSession(userFromAuth);
-        return userFromAuth;
+    if (authError) {
+      // Throw Supabase error directly (e.g., "Email not confirmed", "Invalid login credentials")
+      throw new Error(authError.message);
+    }
+
+    if (authData?.user) {
+      const metadata = authData.user.user_metadata || {};
+
+      // Try fetching user profile from Supabase table
+      let dbProfile: Partial<UserSession> = {};
+      try {
+        const { data: dbUserData } = await client
+          .from('users')
+          .select('*')
+          .eq('id', authData.user.id)
+          .maybeSingle();
+        if (dbUserData) {
+          dbProfile = {
+            fullName: dbUserData.full_name || dbUserData.fullName,
+            patientName: dbUserData.patient_name || dbUserData.patientName,
+            phone: dbUserData.phone,
+            emergencyEmail: dbUserData.emergency_email || dbUserData.emergencyEmail,
+            emergencyPhone: dbUserData.emergency_phone || dbUserData.emergencyPhone,
+          };
+        }
+      } catch {
+        // ignore
       }
-    } catch {
-      // Fallback to local user database
+
+      const userFromAuth: UserSession = {
+        id: authData.user.id,
+        email: authData.user.email || cleanEmail,
+        fullName: dbProfile.fullName || metadata.full_name || metadata.fullName || cleanEmail.split('@')[0],
+        patientName: dbProfile.patientName || metadata.patient_name || metadata.patientName || cleanEmail.split('@')[0],
+        phone: dbProfile.phone || metadata.phone || '',
+        emergencyEmail: dbProfile.emergencyEmail || metadata.emergency_email || '',
+        emergencyPhone: dbProfile.emergencyPhone || metadata.emergency_phone || '',
+        isVerified: !!authData.user.email_confirmed_at,
+        provider: 'email',
+        createdAt: authData.user.created_at || new Date().toISOString(),
+      };
+      saveActiveUserToSession(userFromAuth);
+      return userFromAuth;
     }
   }
 
-  // Fallback lookup in database or local storage
+  // Fallback lookup ONLY when Supabase client is unconfigured
   const user = await findUserInDatabase(cleanEmail);
 
   if (!user) {
