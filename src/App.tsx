@@ -148,7 +148,7 @@ export default function App() {
       />
 
       {/* Main Content Area */}
-      <main className="flex-grow">
+      <main className="flex-grow pb-16 md:pb-0">
         {currentView === 'home' && (
           <HomePage onNavigate={setCurrentView} esp32Status={esp32Status} />
         )}

@@ -104,32 +104,32 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, esp32Status }) =
                   />
 
                   {/* Overlay Glass Badge 1: ESP32 Status */}
-                  <div className="absolute top-6 left-6 backdrop-blur-md bg-white/85 p-3 rounded-2xl border border-white/60 shadow-lg flex items-center gap-3 animate-bounce-slow">
-                    <div className="w-3 h-3 rounded-full bg-teal-500 animate-ping"></div>
-                    <div>
-                      <p className="text-xs font-bold text-slate-900">ESP32 NCSC Box</p>
-                      <p className="text-[10px] text-teal-600 font-semibold">{esp32Status.wifiSSID}</p>
+                  <div className="absolute top-3 left-3 sm:top-6 sm:left-6 backdrop-blur-md bg-white/85 p-2 sm:p-3 rounded-2xl border border-white/60 shadow-lg flex items-center gap-2 sm:gap-3 max-w-[75%]">
+                    <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-teal-500 animate-ping flex-shrink-0"></div>
+                    <div className="truncate">
+                      <p className="text-[11px] sm:text-xs font-bold text-slate-900 truncate">ESP32 NCSC Box</p>
+                      <p className="text-[9px] sm:text-[10px] text-teal-600 font-semibold truncate">{esp32Status.wifiSSID}</p>
                     </div>
                   </div>
 
                   {/* Overlay Glass Badge 2: Next Pill Reminder */}
-                  <div className="absolute bottom-6 right-6 backdrop-blur-md bg-white/90 p-3.5 rounded-2xl border border-white/80 shadow-xl flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-sky-100 text-sky-600 flex items-center justify-center font-bold">
-                      <Pill className="w-5 h-5 animate-spin-slow" />
+                  <div className="absolute bottom-3 right-3 sm:bottom-6 sm:right-6 backdrop-blur-md bg-white/90 p-2.5 sm:p-3.5 rounded-2xl border border-white/80 shadow-xl flex items-center gap-2.5 sm:gap-3 max-w-[80%]">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-sky-100 text-sky-600 flex items-center justify-center font-bold flex-shrink-0">
+                      <Pill className="w-4 h-4 sm:w-5 sm:h-5 animate-spin-slow" />
                     </div>
-                    <div>
-                      <p className="text-xs font-bold text-slate-900">Amoxicillin 500mg</p>
-                      <p className="text-[10px] text-slate-500">Morning Compartment • 08:00 AM</p>
+                    <div className="truncate">
+                      <p className="text-[11px] sm:text-xs font-bold text-slate-900 truncate">Amoxicillin 500mg</p>
+                      <p className="text-[9px] sm:text-[10px] text-slate-500 truncate">Morning Slot • 08:00 AM</p>
                     </div>
                   </div>
                 </div>
 
                 {/* Floating Animated Medicine Icons */}
-                <div className="absolute -top-6 -right-6 w-14 h-14 rounded-2xl bg-gradient-to-tr from-sky-500 to-teal-400 text-white p-3 shadow-lg flex items-center justify-center animate-pulse">
-                  <Bell className="w-7 h-7" />
+                <div className="hidden sm:flex absolute -top-4 -right-4 sm:-top-6 sm:-right-6 w-11 h-11 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-sky-500 to-teal-400 text-white p-2.5 sm:p-3 shadow-lg items-center justify-center animate-pulse">
+                  <Bell className="w-5 h-5 sm:w-7 sm:h-7" />
                 </div>
-                <div className="absolute -bottom-6 -left-6 w-14 h-14 rounded-2xl bg-white text-teal-600 border border-teal-100 p-3 shadow-lg flex items-center justify-center">
-                  <HeartPulse className="w-7 h-7 animate-bounce" />
+                <div className="hidden sm:flex absolute -bottom-4 -left-4 sm:-bottom-6 sm:-left-6 w-11 h-11 sm:w-14 sm:h-14 rounded-2xl bg-white text-teal-600 border border-teal-100 p-2.5 sm:p-3 shadow-lg items-center justify-center">
+                  <HeartPulse className="w-5 h-5 sm:w-7 sm:h-7 animate-bounce" />
                 </div>
               </div>
             </div>
