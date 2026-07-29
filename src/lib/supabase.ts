@@ -104,6 +104,47 @@ export async function findUserInDatabase(email: string): Promise<UserSession | n
   return null;
 }
 
+export async function verifyUserInSupabase(user: UserSession): Promise<boolean> {
+  if (!user || !user.email) return false;
+  const cleanEmail = user.email.toLowerCase().trim();
+  const client = getSupabaseClient();
+
+  if (client) {
+    try {
+      // 1. Check Supabase Auth active session / user
+      const { data: authData } = await client.auth.getUser();
+      if (authData?.user) {
+        if (
+          authData.user.id === user.id ||
+          authData.user.email?.toLowerCase().trim() === cleanEmail
+        ) {
+          return true;
+        }
+      }
+
+      // 2. Check Supabase database table
+      const { data: dbUser, error: dbError } = await client
+        .from('users')
+        .select('id, email')
+        .or(`id.eq.${user.id},email.eq.${cleanEmail}`)
+        .maybeSingle();
+
+      if (!dbError && dbUser) {
+        return true;
+      }
+
+      // Neither Auth nor DB table found matching email/id in Supabase
+      return false;
+    } catch (err) {
+      console.error('Error verifying user in Supabase:', err);
+      return true;
+    }
+  }
+
+  const localUser = await findUserInDatabase(cleanEmail);
+  return !!localUser;
+}
+
 export async function registerUserInDatabase(userData: {
   email: string;
   fullName: string;

@@ -164,8 +164,37 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
               <AlertCircle className="w-5 h-5 text-rose-600 flex-shrink-0 mt-0.5" />
               <div className="flex-1">
                 <p className="font-bold">{authError}</p>
+
+                {(authError.toLowerCase().includes('rate limit') || authError.toLowerCase().includes('rate exceeded')) && (
+                  <div className="mt-3 p-3 bg-white/80 border border-rose-200 rounded-xl text-[11px] text-slate-700 space-y-2">
+                    <p className="font-bold text-rose-900">How to fix Supabase Email Rate Limit:</p>
+                    <ol className="list-decimal pl-4 space-y-1">
+                      <li>
+                        <strong>Turn Off Email Confirmation (Fastest Fix):</strong> In your Supabase Dashboard, go to <strong>Authentication &rarr; Providers &rarr; Email</strong> and disable <em>"Confirm email"</em>.
+                      </li>
+                      <li>
+                        <strong>Configure Custom SMTP:</strong> Set up custom SMTP (Resend, SendGrid, etc.) in Supabase Settings for unlimited outbound emails.
+                      </li>
+                      <li>
+                        <strong>Sign In:</strong> If your account was already created, click below to sign in directly.
+                      </li>
+                    </ol>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTab('signin');
+                        setAuthError(null);
+                      }}
+                      className="mt-1 px-3 py-1.5 bg-sky-600 text-white rounded-lg font-bold text-[11px] hover:bg-sky-700 transition-colors shadow-sm inline-flex items-center gap-1"
+                    >
+                      Go to Sign In Tab
+                    </button>
+                  </div>
+                )}
+
                 {authError.toLowerCase().includes('not registered') && (
                   <button
+                    type="button"
                     onClick={() => {
                       setTab('signup');
                       setAuthError(null);
@@ -177,6 +206,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
                 )}
                 {authError.toLowerCase().includes('already registered') && (
                   <button
+                    type="button"
                     onClick={() => {
                       setTab('signin');
                       setAuthError(null);

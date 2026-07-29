@@ -34,6 +34,7 @@ import {
   getActiveUserFromSession,
   saveActiveUserToSession,
   getSupabaseClient,
+  verifyUserInSupabase,
 } from './lib/supabase';
 
 import { INITIAL_NOTIFICATIONS } from './lib/sampleData';
@@ -80,13 +81,44 @@ export default function App() {
   });
   const [notifications, setNotifications] = useState<AppNotification[]>(INITIAL_NOTIFICATIONS);
 
+  // Helper to verify user in Supabase and automatically log out if missing
+  const verifyAndEnforceUserPresence = async (candidateUser: UserSession | null): Promise<UserSession | null> => {
+    if (!candidateUser) return null;
+    const exists = await verifyUserInSupabase(candidateUser);
+    if (!exists) {
+      console.warn(`User ${candidateUser.email} not found on Supabase. Logging out automatically.`);
+      const client = getSupabaseClient();
+      if (client) {
+        await client.auth.signOut().catch(() => {});
+      }
+      saveActiveUserToSession(null);
+      setUser(null);
+      setNotifications((prev) => [
+        {
+          id: `notif-logout-${Date.now()}`,
+          title: 'Account Verification Failed',
+          message: `The user account (${candidateUser.email}) does not exist in the Supabase database. Automatically logged out for security.`,
+          type: 'warning',
+          timestamp: 'Just now',
+          read: false,
+        },
+        ...prev,
+      ]);
+      return null;
+    }
+    return candidateUser;
+  };
+
   // Load initial data & active user with Supabase Auth state listener
   useEffect(() => {
     async function loadData() {
       try {
         const sessionUser = getActiveUserFromSession();
         if (sessionUser) {
-          setUser(sessionUser);
+          const verified = await verifyAndEnforceUserPresence(sessionUser);
+          if (verified) {
+            setUser(verified);
+          }
         }
         const meds = await fetchMedicines();
         setMedicines(meds);
@@ -104,10 +136,10 @@ export default function App() {
     }
     loadData();
 
-    // Listen for Supabase Auth state updates (e.g. user returning after clicking confirm link in email)
+    // Listen for Supabase Auth state updates
     const client = getSupabaseClient();
     if (client) {
-      client.auth.getSession().then(({ data: { session } }) => {
+      client.auth.getSession().then(async ({ data: { session } }) => {
         if (session?.user) {
           const metadata = session.user.user_metadata || {};
           const confirmedUser: UserSession = {
@@ -122,12 +154,21 @@ export default function App() {
             provider: 'email',
             createdAt: session.user.created_at || new Date().toISOString(),
           };
-          setUser(confirmedUser);
-          saveActiveUserToSession(confirmedUser);
+          const verified = await verifyAndEnforceUserPresence(confirmedUser);
+          if (verified) {
+            setUser(verified);
+            saveActiveUserToSession(verified);
+          }
+        } else {
+          // If no active auth session, verify if local user session still exists in Supabase
+          const currentLocal = getActiveUserFromSession();
+          if (currentLocal) {
+            await verifyAndEnforceUserPresence(currentLocal);
+          }
         }
       });
 
-      const { data: { subscription } } = client.auth.onAuthStateChange((event, session) => {
+      const { data: { subscription } } = client.auth.onAuthStateChange(async (event, session) => {
         if (session?.user) {
           const metadata = session.user.user_metadata || {};
           const confirmedUser: UserSession = {
@@ -142,8 +183,11 @@ export default function App() {
             provider: 'email',
             createdAt: session.user.created_at || new Date().toISOString(),
           };
-          setUser(confirmedUser);
-          saveActiveUserToSession(confirmedUser);
+          const verified = await verifyAndEnforceUserPresence(confirmedUser);
+          if (verified) {
+            setUser(verified);
+            saveActiveUserToSession(verified);
+          }
         } else if (event === 'SIGNED_OUT') {
           setUser(null);
           saveActiveUserToSession(null);
