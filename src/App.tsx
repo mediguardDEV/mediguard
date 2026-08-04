@@ -261,9 +261,23 @@ export default function App() {
     setEsp32Status(updated);
   };
 
+  const EMPTY_MEDICAL_PROFILE: MedicalProfile = {
+    fullName: '',
+    dateOfBirth: '',
+    bloodType: 'Not Specified',
+    primaryPhysician: '',
+    physicianPhone: '',
+    hospitalPreference: '',
+    chronicConditions: [],
+    allergies: [],
+    insurancePolicyNumber: '',
+  };
+
   const handleLogout = () => {
     saveActiveUserToSession(null);
     setUser(null);
+    setEmergencyContacts([]);
+    setMedicalProfile(EMPTY_MEDICAL_PROFILE);
   };
 
   return (
@@ -311,9 +325,9 @@ export default function App() {
 
         {currentView === 'health' && (
           <MediGuardHealthView
-            emergencyContacts={emergencyContacts}
-            medicalProfile={medicalProfile}
-            doseLogs={doseLogs}
+            emergencyContacts={user ? emergencyContacts : []}
+            medicalProfile={user ? medicalProfile : EMPTY_MEDICAL_PROFILE}
+            doseLogs={user ? doseLogs : []}
             user={user}
             onOpenAuthModal={() => setIsAuthModalOpen(true)}
             onSaveContact={handleSaveContact}
