@@ -114,8 +114,53 @@ Return ONLY valid raw JSON with no markdown syntax.`;
   }
 });
 
-// ESP32 Telemetry Simulation Endpoints
+// ESP32 Telemetry & Sync Endpoints
+let latestESP32DeviceData: Record<string, any> = {};
+
+app.post('/api/esp32/sync', (req, res) => {
+  const deviceOwnerHeader = req.headers['x-device-owner'] as string;
+  const { deviceId, userId, ipAddress, wifiSSID, wifiSignalDbm, batteryLevel, event, compartment } = req.body;
+
+  const boundUser = userId || deviceOwnerHeader;
+  if (!boundUser) {
+    return res.status(401).json({ error: 'Device Unbound: Missing user ID binding' });
+  }
+
+  // Store active hardware telemetry tied exclusively to bound User ID
+  latestESP32DeviceData[boundUser.toLowerCase().trim()] = {
+    isConnected: true,
+    deviceId: deviceId || 'ESP32-MEDIGUARD-X1',
+    boundUserId: boundUser.toLowerCase().trim(),
+    ipAddress: ipAddress || '192.168.1.105',
+    wifiSSID: wifiSSID || 'Home_WiFi',
+    wifiSignalDbm: wifiSignalDbm || -58,
+    batteryLevel: batteryLevel || 98,
+    isCharging: false,
+    lastSyncedAt: new Date().toLocaleTimeString(),
+    lastEvent: event || 'telemetry_ping',
+    lastCompartment: compartment || null,
+  };
+
+  console.log(`[ESP32 SYNC] Received telemetry for Device ${deviceId}, bound to User: ${boundUser}`);
+
+  res.json({
+    success: true,
+    status: 'synced',
+    boundUser,
+    serverTime: new Date().toISOString(),
+  });
+});
+
 app.get('/api/esp32/status', (req, res) => {
+  const requestedUser = (req.query.user_id as string || '').toLowerCase().trim();
+  
+  if (requestedUser && latestESP32DeviceData[requestedUser]) {
+    return res.json({
+      ...latestESP32DeviceData[requestedUser],
+      encryptionMode: 'AES-256-GCM / BT-WiFi Provisioned',
+    });
+  }
+
   res.json({
     isConnected: true,
     deviceId: 'ESP32-MEDIGUARD-X1-8F2C',

@@ -17,6 +17,7 @@ import {
   Filter,
 } from 'lucide-react';
 import { Medicine, DoseLog, ESP32Status, AppNotification, UserSession } from '../types';
+import { ESP32FirmwareModal } from './ESP32FirmwareModal';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 
 interface DashboardViewProps {
@@ -53,6 +54,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const [activeCompartmentFilter, setActiveCompartmentFilter] = useState<string>('All');
   const [selectedSkipLogId, setSelectedSkipLogId] = useState<string | null>(null);
   const [skipReasonInput, setSkipReasonInput] = useState<string>('');
+  const [isFirmwareModalOpen, setIsFirmwareModalOpen] = useState(false);
 
   // Stats calculation
   const todayStr = new Date().toISOString().split('T')[0];
@@ -459,15 +461,29 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </div>
             </div>
 
-            <button
-              onClick={() => onNavigate('manager')}
-              className="w-full py-2.5 bg-teal-500 hover:bg-teal-400 text-slate-950 font-extrabold text-xs rounded-xl transition-all"
-            >
-              Open ESP32 Control Panel
-            </button>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => setIsFirmwareModalOpen(true)}
+                className="w-full py-2.5 bg-sky-500 hover:bg-sky-400 text-slate-950 font-extrabold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-sm"
+              >
+                <span>Get ESP32 Arduino Code (.INO)</span>
+              </button>
+              <button
+                onClick={() => onNavigate('manager')}
+                className="w-full py-2 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl transition-all"
+              >
+                Open ESP32 Control Panel
+              </button>
+            </div>
           </div>
         </div>
       </div>
+
+      <ESP32FirmwareModal
+        isOpen={isFirmwareModalOpen}
+        user={user}
+        onClose={() => setIsFirmwareModalOpen(false)}
+      />
     </div>
   );
 };
