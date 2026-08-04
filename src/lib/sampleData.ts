@@ -4,6 +4,25 @@ export const INITIAL_MEDICINES: Medicine[] = [];
 
 export const INITIAL_DOSE_LOGS: DoseLog[] = [];
 
+export const DISCONNECTED_ESP32_STATUS: ESP32Status = {
+  isConnected: false,
+  deviceId: 'ESP32-DISCONNECTED',
+  ipAddress: 'Offline',
+  wifiSSID: 'Not Connected',
+  wifiSignalDbm: -99,
+  batteryLevel: 0,
+  isCharging: false,
+  lastSyncedAt: 'Never',
+  encryptionMode: 'None / Unbound Device',
+  compartments: {
+    Morning: { ledActive: false, color: '#0ea5e9', pillCount: 0 },
+    Afternoon: { ledActive: false, color: '#10b981', pillCount: 0 },
+    Evening: { ledActive: false, color: '#f59e0b', pillCount: 0 },
+    Night: { ledActive: false, color: '#6366f1', pillCount: 0 },
+  },
+  physicalButtonPressed: false,
+};
+
 export const INITIAL_ESP32_STATUS: ESP32Status = {
   isConnected: true,
   deviceId: 'ESP32-MEDIGUARD-X1',

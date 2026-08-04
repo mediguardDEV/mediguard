@@ -79,6 +79,28 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-fadeIn">
+      {!user && (
+        <div className="bg-slate-900 text-white rounded-2xl p-5 border border-slate-800 shadow-md flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-600/30 text-blue-400 flex items-center justify-center flex-shrink-0">
+              <ShieldAlert className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="font-bold text-sm text-white">Signed Out — Preview Cleared</p>
+              <p className="text-xs text-slate-300">
+                You are currently logged out. All patient medical data and schedules have been wiped from the preview. Please sign in to access your personal dashboard.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onOpenAuthModal}
+            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex-shrink-0"
+          >
+            Sign In to Account
+          </button>
+        </div>
+      )}
+
       {/* Personalized Header Banner */}
       <div className="bg-gradient-to-r from-[#2563EB] to-[#0D9488] rounded-2xl p-6 sm:p-8 text-white shadow-md relative overflow-hidden">
         <div className="absolute right-0 top-0 w-96 h-96 bg-white/10 rounded-full blur-3xl pointer-events-none"></div>
@@ -153,8 +175,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div>
             <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">ESP32 Smart Box</p>
             <div className="flex items-center gap-1.5 mt-1">
-              <span className="w-2.5 h-2.5 rounded-full bg-teal-500 animate-pulse"></span>
-              <span className="text-lg font-extrabold text-slate-900">Connected</span>
+              <span className={`w-2.5 h-2.5 rounded-full ${esp32Status.isConnected ? 'bg-teal-500 animate-pulse' : 'bg-slate-400'}`}></span>
+              <span className="text-lg font-extrabold text-slate-900">
+                {esp32Status.isConnected ? 'Connected' : 'Disconnected'}
+              </span>
             </div>
             <div className="flex items-center gap-2 text-[10px] text-slate-500 font-medium mt-1">
               <span className="flex items-center gap-0.5">

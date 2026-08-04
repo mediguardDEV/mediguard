@@ -111,6 +111,28 @@ Report cryptographically signed by MediGuard Vault.
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10 animate-fadeIn">
+      {!user && (
+        <div className="bg-slate-900 text-white rounded-2xl p-5 border border-slate-800 shadow-md flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-600/30 text-blue-400 flex items-center justify-center flex-shrink-0">
+              <TrendingUp className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="font-bold text-sm text-white">Signed Out — Clinical Metrics Wiped</p>
+              <p className="text-xs text-slate-300">
+                You are currently logged out. Adherence logs and clinical reports have been wiped from preview. Please sign in to view analytics.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onOpenAuthModal}
+            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex-shrink-0"
+          >
+            Sign In to Account
+          </button>
+        </div>
+      )}
+
       {/* Top Banner */}
       <div className="bg-gradient-to-r from-sky-700 via-blue-700 to-teal-700 rounded-3xl p-6 sm:p-8 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="space-y-2">

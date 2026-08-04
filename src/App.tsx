@@ -33,11 +33,12 @@ import {
   saveESP32Status,
   getActiveUserFromSession,
   saveActiveUserToSession,
+  logoutUserInDatabase,
   getSupabaseClient,
   verifyUserInSupabase,
 } from './lib/supabase';
 
-import { INITIAL_NOTIFICATIONS } from './lib/sampleData';
+import { INITIAL_NOTIFICATIONS, DISCONNECTED_ESP32_STATUS } from './lib/sampleData';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<'home' | 'dashboard' | 'health' | 'manager' | 'analytics'>('home');
@@ -87,22 +88,23 @@ export default function App() {
     const exists = await verifyUserInSupabase(candidateUser);
     if (!exists) {
       console.warn(`User ${candidateUser.email} not found on Supabase. Logging out automatically.`);
-      const client = getSupabaseClient();
-      if (client) {
-        await client.auth.signOut().catch(() => {});
-      }
-      saveActiveUserToSession(null);
+      await logoutUserInDatabase();
       setUser(null);
-      setNotifications((prev) => [
+      setMedicines([]);
+      setDoseLogs([]);
+      setEmergencyContacts([]);
+      setMedicalProfile(EMPTY_MEDICAL_PROFILE);
+      setNotifications([]);
+      setEsp32Status(DISCONNECTED_ESP32_STATUS);
+      setNotifications([
         {
           id: `notif-logout-${Date.now()}`,
           title: 'Account Verification Failed',
-          message: `The user account (${candidateUser.email}) does not exist in the Supabase database. Automatically logged out for security.`,
+          message: `The user account (${candidateUser.email}) does not exist in the database. Automatically logged out for security.`,
           type: 'warning',
           timestamp: 'Just now',
           read: false,
         },
-        ...prev,
       ]);
       return null;
     }
@@ -118,18 +120,41 @@ export default function App() {
           const verified = await verifyAndEnforceUserPresence(sessionUser);
           if (verified) {
             setUser(verified);
+            const meds = await fetchMedicines();
+            setMedicines(meds);
+            const logs = await fetchDoseLogs();
+            setDoseLogs(logs);
+            const contacts = await fetchEmergencyContacts();
+            setEmergencyContacts(contacts);
+            const profile = await fetchMedicalProfile();
+            setMedicalProfile(profile);
+            const status = await fetchESP32Status();
+            setEsp32Status(status);
+          } else {
+            setUser(null);
+            setMedicines([]);
+            setDoseLogs([]);
+            setEmergencyContacts([]);
+            setMedicalProfile(EMPTY_MEDICAL_PROFILE);
+            setNotifications([]);
+            setEsp32Status(DISCONNECTED_ESP32_STATUS);
+          }
+        } else {
+          // Explicitly logged out / no active local session -> ensure clean wiped state
+          setUser(null);
+          setMedicines([]);
+          setDoseLogs([]);
+          setEmergencyContacts([]);
+          setMedicalProfile(EMPTY_MEDICAL_PROFILE);
+          setNotifications([]);
+          setEsp32Status(DISCONNECTED_ESP32_STATUS);
+
+          // Force client signout if stale tokens remain
+          const client = getSupabaseClient();
+          if (client) {
+            await client.auth.signOut().catch(() => {});
           }
         }
-        const meds = await fetchMedicines();
-        setMedicines(meds);
-        const logs = await fetchDoseLogs();
-        setDoseLogs(logs);
-        const contacts = await fetchEmergencyContacts();
-        setEmergencyContacts(contacts);
-        const profile = await fetchMedicalProfile();
-        setMedicalProfile(profile);
-        const status = await fetchESP32Status();
-        setEsp32Status(status);
       } catch (err) {
         console.error('Error loading MediGuard database:', err);
       }
@@ -140,7 +165,8 @@ export default function App() {
     const client = getSupabaseClient();
     if (client) {
       client.auth.getSession().then(async ({ data: { session } }) => {
-        if (session?.user) {
+        const sessionUser = getActiveUserFromSession();
+        if (session?.user && sessionUser) {
           const metadata = session.user.user_metadata || {};
           const confirmedUser: UserSession = {
             id: session.user.id,
@@ -159,38 +185,61 @@ export default function App() {
             setUser(verified);
             saveActiveUserToSession(verified);
           }
-        } else {
-          // If no active auth session, verify if local user session still exists in Supabase
-          const currentLocal = getActiveUserFromSession();
-          if (currentLocal) {
-            await verifyAndEnforceUserPresence(currentLocal);
-          }
+        } else if (!sessionUser) {
+          // Local session explicitly logged out -> purge client auth session
+          await client.auth.signOut().catch(() => {});
+          setUser(null);
+          setMedicines([]);
+          setDoseLogs([]);
+          setEmergencyContacts([]);
+          setMedicalProfile(EMPTY_MEDICAL_PROFILE);
+          setNotifications([]);
+          setEsp32Status(DISCONNECTED_ESP32_STATUS);
         }
       });
 
       const { data: { subscription } } = client.auth.onAuthStateChange(async (event, session) => {
-        if (session?.user) {
-          const metadata = session.user.user_metadata || {};
-          const confirmedUser: UserSession = {
-            id: session.user.id,
-            email: session.user.email || '',
-            fullName: metadata.full_name || metadata.fullName || session.user.email?.split('@')[0] || 'User',
-            patientName: metadata.patient_name || metadata.patientName || session.user.email?.split('@')[0] || 'Patient',
-            phone: metadata.phone || '',
-            emergencyEmail: metadata.emergency_email || '',
-            emergencyPhone: metadata.emergency_phone || '',
-            isVerified: !!session.user.email_confirmed_at,
-            provider: 'email',
-            createdAt: session.user.created_at || new Date().toISOString(),
-          };
-          const verified = await verifyAndEnforceUserPresence(confirmedUser);
-          if (verified) {
-            setUser(verified);
-            saveActiveUserToSession(verified);
-          }
-        } else if (event === 'SIGNED_OUT') {
+        if (event === 'SIGNED_OUT' || !session) {
           setUser(null);
           saveActiveUserToSession(null);
+          setMedicines([]);
+          setDoseLogs([]);
+          setEmergencyContacts([]);
+          setMedicalProfile(EMPTY_MEDICAL_PROFILE);
+          setNotifications([]);
+          setEsp32Status(DISCONNECTED_ESP32_STATUS);
+        } else if (session?.user && event === 'SIGNED_IN') {
+          const sessionUser = getActiveUserFromSession();
+          if (sessionUser) {
+            const metadata = session.user.user_metadata || {};
+            const confirmedUser: UserSession = {
+              id: session.user.id,
+              email: session.user.email || '',
+              fullName: metadata.full_name || metadata.fullName || session.user.email?.split('@')[0] || 'User',
+              patientName: metadata.patient_name || metadata.patientName || session.user.email?.split('@')[0] || 'Patient',
+              phone: metadata.phone || '',
+              emergencyEmail: metadata.emergency_email || '',
+              emergencyPhone: metadata.emergency_phone || '',
+              isVerified: !!session.user.email_confirmed_at,
+              provider: 'email',
+              createdAt: session.user.created_at || new Date().toISOString(),
+            };
+            const verified = await verifyAndEnforceUserPresence(confirmedUser);
+            if (verified) {
+              setUser(verified);
+              saveActiveUserToSession(verified);
+              const meds = await fetchMedicines();
+              setMedicines(meds);
+              const logs = await fetchDoseLogs();
+              setDoseLogs(logs);
+              const contacts = await fetchEmergencyContacts();
+              setEmergencyContacts(contacts);
+              const profile = await fetchMedicalProfile();
+              setMedicalProfile(profile);
+              const status = await fetchESP32Status();
+              setEsp32Status(status);
+            }
+          }
         }
       });
 
@@ -273,11 +322,34 @@ export default function App() {
     insurancePolicyNumber: '',
   };
 
-  const handleLogout = () => {
-    saveActiveUserToSession(null);
+  const handleLogout = async () => {
+    await logoutUserInDatabase();
     setUser(null);
+    setMedicines([]);
+    setDoseLogs([]);
     setEmergencyContacts([]);
     setMedicalProfile(EMPTY_MEDICAL_PROFILE);
+    setNotifications([]);
+    setEsp32Status(DISCONNECTED_ESP32_STATUS);
+  };
+
+  const handleLoginSuccess = async (u: UserSession) => {
+    setUser(u);
+    saveActiveUserToSession(u);
+    try {
+      const meds = await fetchMedicines();
+      setMedicines(meds);
+      const logs = await fetchDoseLogs();
+      setDoseLogs(logs);
+      const contacts = await fetchEmergencyContacts();
+      setEmergencyContacts(contacts);
+      const profile = await fetchMedicalProfile();
+      setMedicalProfile(profile);
+      const status = await fetchESP32Status();
+      setEsp32Status(status);
+    } catch (e) {
+      console.error('Error fetching user data after login:', e);
+    }
   };
 
   return (
@@ -287,7 +359,7 @@ export default function App() {
         currentView={currentView}
         onNavigate={setCurrentView}
         user={user}
-        esp32Status={esp32Status}
+        esp32Status={user ? esp32Status : DISCONNECTED_ESP32_STATUS}
         onOpenAuthModal={() => setIsAuthModalOpen(true)}
         onLogout={handleLogout}
       />
@@ -295,15 +367,15 @@ export default function App() {
       {/* Main Content Area */}
       <main className="flex-grow pb-16 md:pb-0">
         {currentView === 'home' && (
-          <HomePage onNavigate={setCurrentView} esp32Status={esp32Status} />
+          <HomePage onNavigate={setCurrentView} esp32Status={user ? esp32Status : DISCONNECTED_ESP32_STATUS} />
         )}
 
         {currentView === 'dashboard' && (
           <DashboardView
-            medicines={medicines}
-            doseLogs={doseLogs}
-            esp32Status={esp32Status}
-            notifications={notifications}
+            medicines={user ? medicines : []}
+            doseLogs={user ? doseLogs : []}
+            esp32Status={user ? esp32Status : DISCONNECTED_ESP32_STATUS}
+            notifications={user ? notifications : []}
             user={user}
             onOpenAuthModal={() => setIsAuthModalOpen(true)}
             onUpdateDoseStatus={handleUpdateDoseStatus}
@@ -313,8 +385,8 @@ export default function App() {
 
         {currentView === 'manager' && (
           <MedicineManagerView
-            medicines={medicines}
-            esp32Status={esp32Status}
+            medicines={user ? medicines : []}
+            esp32Status={user ? esp32Status : DISCONNECTED_ESP32_STATUS}
             user={user}
             onOpenAuthModal={() => setIsAuthModalOpen(true)}
             onSaveMedicine={handleSaveMedicine}
@@ -337,8 +409,8 @@ export default function App() {
 
         {currentView === 'analytics' && (
           <AnalyticsView
-            doseLogs={doseLogs}
-            medicines={medicines}
+            doseLogs={user ? doseLogs : []}
+            medicines={user ? medicines : []}
             user={user}
             onOpenAuthModal={() => setIsAuthModalOpen(true)}
           />
@@ -356,7 +428,7 @@ export default function App() {
       <AuthModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
-        onLoginSuccess={(u) => setUser(u)}
+        onLoginSuccess={handleLoginSuccess}
       />
 
       <PrivacyTermsModal

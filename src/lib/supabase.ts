@@ -357,6 +357,39 @@ export function saveActiveUserToSession(user: UserSession | null): void {
   }
 }
 
+export async function logoutUserInDatabase(): Promise<void> {
+  saveActiveUserToSession(null);
+
+  const client = getSupabaseClient();
+  if (client) {
+    try {
+      await client.auth.signOut({ scope: 'global' });
+    } catch (err) {
+      console.warn('Supabase client signOut notice:', err);
+    }
+  }
+
+  try {
+    localStorage.removeItem(LOCAL_ACTIVE_USER_KEY);
+    localStorage.removeItem(LOCAL_MEDICINES_KEY);
+    localStorage.removeItem(LOCAL_DOSE_LOGS_KEY);
+    localStorage.removeItem(LOCAL_EMERGENCY_KEY);
+    localStorage.removeItem(LOCAL_PROFILE_KEY);
+    localStorage.removeItem(LOCAL_ESP32_KEY);
+
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (key.startsWith('sb-') || key.includes('auth-token') || key.includes('mediguard'))) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach((k) => localStorage.removeItem(k));
+  } catch (err) {
+    console.error('Error clearing local storage on logout:', err);
+  }
+}
+
 // Seed local storage if empty
 export function initLocalStorageStore() {
   if (!localStorage.getItem(LOCAL_MEDICINES_KEY)) {
